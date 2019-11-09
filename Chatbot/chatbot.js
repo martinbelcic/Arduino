@@ -11,6 +11,11 @@ const MQTT_TOPIC_BASE = 'ingenieria/anexo/';
 const MQTT_TEMP_TOPIC = '/temperatura';
 
 const MQTT_TEMP_QUESTION = 'Que temperatura hace?';
+const MQTT_TEMP_QUESTION_LOCATION = 'Que temperatura hace en ';
+const MQTT_LED_QUESTION_ON = 'Prender LED de ';
+const MQTT_LED_QUESTION_OFF = 'Apagar LED de ';
+const MQTT_ENGINE_QUESTION_START = 'Girar motor a ';
+const MQTT_ENGINE_QUESTION_MID = ' de ';
 
 // NTP port over TCP.
 const TCP_NTP_PORT = 8083;
@@ -142,6 +147,61 @@ const register = (host, username, ip, port, offset) => {
             sendMessage(username, 'all', message, now.getTime(), offset);
             console.log(message);
           }
+        }
+        else if (message.startsWith(MQTT_TEMP_QUESTION_LOCATION) && message.endsWith('?')){
+            var location = message.substr(MQTT_TEMP_QUESTION_LOCATION.length, message.length - MQTT_TEMP_QUESTION_LOCATION.length - 1);
+            if (location in mqttLastTemperatures) {
+              var lastTemperature = mqttLastTemperatures[location];
+              var message = `Last temperature is ${lastTemperature} in ${location}.`;
+            }
+            else {
+              var message = `${location} is unknown.`;
+            }
+            
+            var now = new Date();
+            sendMessage(username, 'all', message, now.getTime(), offset);
+            console.log(message);
+        }
+        else if (message.startsWith(MQTT_LED_QUESTION_ON)) {
+            var location = message.substr(MQTT_LED_QUESTION_ON.length, message.length - MQTT_LED_QUESTION_ON.length);
+            var message_led = {
+                'valor': true,
+                'timestamp': (new Date()).getTime()
+            };
+            mqttClient.publish(MQTT_TOPIC_BASE + location + '/led', JSON.stringify(message_led));
+            console.log(location + ' LED on.');
+            sendMessage(username, 'all', location + ' LED on.', (new Date()).getTime(), offset);
+        }
+        else if (message.startsWith(MQTT_LED_QUESTION_OFF)) {
+            var location = message.substr(MQTT_LED_QUESTION_OFF.length, message.length - MQTT_LED_QUESTION_OFF.length);
+            var message_led = {
+                'valor': false,
+                'timestamp': (new Date()).getTime()
+            };
+            mqttClient.publish(MQTT_TOPIC_BASE + location + '/led', JSON.stringify(message_led));
+            console.log(location + ' LED off.');
+            sendMessage(username, 'all', location + ' LED off.', (new Date()).getTime(), offset);
+        }
+        else if (message.startsWith(MQTT_ENGINE_QUESTION_START)) {
+            var midPos = message.search(MQTT_ENGINE_QUESTION_MID);
+            if (midPos > 0) {
+                var degreesPos = MQTT_ENGINE_QUESTION_START.length;
+                var degrees = parseInt(message.substr(degreesPos, midPos - degreesPos)) % 360;
+                var locationPos = midPos + MQTT_ENGINE_QUESTION_MID.length;
+                var location = message.substr(locationPos, message.length - locationPos);
+                if (location != '') {
+                    var messageEngine = {
+                        'valor': degrees,
+                        'timestamp': (new Date()).getTime()
+                    };
+
+                    mqttClient.publish(MQTT_TOPIC_BASE + location + '/motor', JSON.stringify(messageEngine));
+
+                    var chatMessage = `Set engine at ${location} to ${degrees} degrees.`;
+                    console.log(chatMessage);
+                    sendMessage(username, 'all', chatMessage, (new Date()).getTime(), offset);
+                }
+            }
         }
       }
     });
