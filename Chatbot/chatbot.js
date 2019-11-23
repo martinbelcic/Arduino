@@ -289,23 +289,31 @@ function startMQTT() {
     if (topic.startsWith(MQTT_TOPIC_BASE)) {
       try {
         var parsed = JSON.parse(message.toString());
-        var tempTopicPos = topic.search(MQTT_TEMP_TOPIC);
-        var coTopicPos = topic.search(MQTT_CO_TOPIC);
-        var proxTopicPos = topic.search(MQTT_PROX_TOPIC);
-        if (tempTopicPos > 0) {
-          var location = topic.substr(MQTT_TOPIC_BASE.length, tempTopicPos - MQTT_TOPIC_BASE.length);
-          mqttLastTemperatures[location] = parsed['valor'];
-          mqttLastTempLocation = location;
+        if (('valor' in parsed) && ('timestamp' in parsed)) {
+          var tempTopicPos = topic.search(MQTT_TEMP_TOPIC);
+          var coTopicPos = topic.search(MQTT_CO_TOPIC);
+          var proxTopicPos = topic.search(MQTT_PROX_TOPIC);
+          if (tempTopicPos > 0) {
+            var location = topic.substr(MQTT_TOPIC_BASE.length, tempTopicPos - MQTT_TOPIC_BASE.length);
+            mqttLastTemperatures[location] = parsed['valor'];
+            mqttLastTempLocation = location;
+            console.log(`Registered temperature ${mqttLastTemperatures[location]} at ${location}`);
+          }
+          else if (coTopicPos > 0) {
+            var location = topic.substr(MQTT_TOPIC_BASE.length, coTopicPos - MQTT_TOPIC_BASE.length);
+            mqttLastCOs[location] = parsed['valor'];
+            mqttLastCOLocation = location;
+            console.log(`Registered CO ${mqttLastCOs[location]} at ${location}`);
+          }
+          else if (proxTopicPos > 0) {
+            var location = topic.substr(MQTT_TOPIC_BASE.length, proxTopicPos - MQTT_TOPIC_BASE.length);
+            mqttLastProximities[location] = parsed['valor'];
+            mqttLastProximityLocation = location;
+            console.log(`Registered proximity ${mqttLastProximities[location]} at ${location}`);
+          }
         }
-        else if (coTopicPos > 0) {
-          var location = topic.substr(MQTT_TOPIC_BASE.length, coTopicPos - MQTT_TOPIC_BASE.length);
-          mqttLastCOs[location] = parsed['valor'];
-          mqttLastCOLocation = location;
-        }
-        else if (proxTopicPos > 0) {
-          var location = topic.substr(MQTT_TOPIC_BASE.length, proxTopicPos - MQTT_TOPIC_BASE.length);
-          mqttLastProximities[location] = parsed['valor'];
-          mqttLastProximityLocation = location;
+        else {
+          console.log('JSON does not have the expected parameters.');
         }
       } 
       catch(e) {
