@@ -9,9 +9,15 @@ const mqtt = require('mqtt');
 const MQTT_HOST = 'mqtt://mqtt.fi.mdp.edu.ar';
 const MQTT_TOPIC_BASE = 'ingenieria/anexo/';
 const MQTT_TEMP_TOPIC = '/temperatura';
+const MQTT_CO_TOPIC = '/gas';
+const MQTT_PROX_TOPIC = '/proximidad';
 
 const MQTT_TEMP_QUESTION = 'Que temperatura hace?';
 const MQTT_TEMP_QUESTION_LOCATION = 'Que temperatura hace en ';
+const MQTT_CO_QUESTION = 'Que CO hay?';
+const MQTT_CO_QUESTION_LOCATION = 'Que CO hay en ';
+const MQTT_PROX_QUESTION = 'Que proximidad hay?';
+const MQTT_PROX_QUESTION_LOCATION = 'Que proximidad hay en ';
 const MQTT_LED_QUESTION_ON = 'Prender LED de ';
 const MQTT_LED_QUESTION_OFF = 'Apagar LED de ';
 const MQTT_ENGINE_QUESTION_START = 'Girar motor a ';
@@ -27,6 +33,10 @@ var sendSocket = dgram.createSocket('udp4');
 var mqttClient = null;
 var mqttLastTemperatures = { };
 var mqttLastTempLocation = null;
+var mqttLastCOs = { };
+var mqttLastCOLocation = null;
+var mqttLastProximities = { };
+var mqttLastProximityLocation = null;
 
 const HEARTBEAT_INTERVAL_MSECS = 60000;
 
@@ -105,6 +115,37 @@ function requestRegister(host, username, ip, port) {
    req.end();
 }
 
+function askSensor(username, offset, message, baseQuestion, locationQuestion, lastLocation, lastValues, sensorName) {
+  if (message == baseQuestion) {
+    if (lastLocation != null) {
+      var lastValue = lastValues[lastLocation];
+      var chatMessage = `Last ${sensorName} is ${lastValue} in ${lastLocation}.`;
+      
+      var now = new Date();
+      sendMessage(username, 'all', chatMessage, now.getTime(), offset);
+      console.log(chatMessage);
+      return true;
+    }
+  }
+  else if (message.startsWith(locationQuestion) && message.endsWith('?')){
+      var location = message.substr(locationQuestion.length, message.length - locationQuestion.length - 1);
+      if (location in lastValues) {
+        var lastValue = lastValues[location];
+        var chatMessage = `Last ${sensorName} is ${lastValue} in ${location}.`;
+      }
+      else {
+        var chatMessage = `${location} is unknown.`;
+      }
+      
+      var now = new Date();
+      sendMessage(username, 'all', chatMessage, now.getTime(), offset);
+      console.log(chatMessage);
+      return true;
+  }
+
+  return false;
+}
+
 // Register this client on the HTTP server.
 const register = (host, username, ip, port, offset) => {
   return new Promise((resolve, reject) => {
@@ -138,30 +179,10 @@ const register = (host, username, ip, port, offset) => {
         var timestamp = new Date(parsed.timestamp + parsed.offset);
         var datestring = timestamp.toLocaleDateString();
         var timestring = timestamp.toLocaleTimeString();
-        if (message == MQTT_TEMP_QUESTION) {
-          if (mqttLastTempLocation != null) {
-            var lastTemperature = mqttLastTemperatures[mqttLastTempLocation];
-            var message = `Last temperature is ${lastTemperature} in ${mqttLastTempLocation}.`;
-            
-            var now = new Date();
-            sendMessage(username, 'all', message, now.getTime(), offset);
-            console.log(message);
-          }
-        }
-        else if (message.startsWith(MQTT_TEMP_QUESTION_LOCATION) && message.endsWith('?')){
-            var location = message.substr(MQTT_TEMP_QUESTION_LOCATION.length, message.length - MQTT_TEMP_QUESTION_LOCATION.length - 1);
-            if (location in mqttLastTemperatures) {
-              var lastTemperature = mqttLastTemperatures[location];
-              var message = `Last temperature is ${lastTemperature} in ${location}.`;
-            }
-            else {
-              var message = `${location} is unknown.`;
-            }
-            
-            var now = new Date();
-            sendMessage(username, 'all', message, now.getTime(), offset);
-            console.log(message);
-        }
+        
+        if (askSensor(username, offset, message, MQTT_TEMP_QUESTION, MQTT_TEMP_QUESTION_LOCATION, mqttLastTempLocation, mqttLastTemperatures, "temperature")) { }
+        else if (askSensor(username, offset, message, MQTT_CO_QUESTION, MQTT_CO_QUESTION_LOCATION, mqttLastCOLocation, mqttLastCOs, "CO")) { }
+        else if (askSensor(username, offset, message, MQTT_PROX_QUESTION, MQTT_PROX_QUESTION_LOCATION, mqttLastProximityLocation, mqttLastProximities, "proximity")) { }
         else if (message.startsWith(MQTT_LED_QUESTION_ON)) {
             var location = message.substr(MQTT_LED_QUESTION_ON.length, message.length - MQTT_LED_QUESTION_ON.length);
             var message_led = {
@@ -266,12 +287,29 @@ function startMQTT() {
     console.log(topic, ':', message.toString());
 
     if (topic.startsWith(MQTT_TOPIC_BASE)) {
-      var parsed = JSON.parse(message.toString());
-      var tempTopicPos = topic.search(MQTT_TEMP_TOPIC);
-      if (tempTopicPos > 0) {
-        var location = topic.substr(MQTT_TOPIC_BASE.length, tempTopicPos - MQTT_TOPIC_BASE.length);
-        mqttLastTemperatures[location] = parsed['valor'];
-        mqttLastTempLocation = location;
+      try {
+        var parsed = JSON.parse(message.toString());
+        var tempTopicPos = topic.search(MQTT_TEMP_TOPIC);
+        var coTopicPos = topic.search(MQTT_CO_TOPIC);
+        var proxTopicPos = topic.search(MQTT_PROX_TOPIC);
+        if (tempTopicPos > 0) {
+          var location = topic.substr(MQTT_TOPIC_BASE.length, tempTopicPos - MQTT_TOPIC_BASE.length);
+          mqttLastTemperatures[location] = parsed['valor'];
+          mqttLastTempLocation = location;
+        }
+        else if (coTopicPos > 0) {
+          var location = topic.substr(MQTT_TOPIC_BASE.length, coTopicPos - MQTT_TOPIC_BASE.length);
+          mqttLastCOs[location] = parsed['valor'];
+          mqttLastCOLocation = location;
+        }
+        else if (proxTopicPos > 0) {
+          var location = topic.substr(MQTT_TOPIC_BASE.length, proxTopicPos - MQTT_TOPIC_BASE.length);
+          mqttLastProximities[location] = parsed['valor'];
+          mqttLastProximityLocation = location;
+        }
+      } 
+      catch(e) {
+        alert(e);
       }
     }
   });
