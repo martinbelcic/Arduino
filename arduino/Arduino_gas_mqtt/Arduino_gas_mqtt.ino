@@ -4,8 +4,8 @@
 #include <Wire.h>
  
 // Connect to the WiFi
-const char* ssid = "Hogwarts";
-const char* password = "Alohomora7";
+const char* ssid = "patronatofi";
+const char* password = "";
 const char* mqtt_server = "200.0.183.33";
 const char* mqqt_topic = "ingenieria/anexo/pasillo/gas";
  
