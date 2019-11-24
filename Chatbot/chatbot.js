@@ -11,6 +11,7 @@ const MQTT_TOPIC_BASE = 'ingenieria/anexo/';
 const MQTT_TEMP_TOPIC = '/temperatura';
 const MQTT_CO_TOPIC = '/gas';
 const MQTT_PROX_TOPIC = '/proximidad';
+const MQTT_ORDER_TOPIC = '/bluetooth';
 
 const MQTT_TEMP_QUESTION = 'Que temperatura hace?';
 const MQTT_TEMP_QUESTION_LOCATION = 'Que temperatura hace en ';
@@ -18,6 +19,8 @@ const MQTT_CO_QUESTION = 'Que CO hay?';
 const MQTT_CO_QUESTION_LOCATION = 'Que CO hay en ';
 const MQTT_PROX_QUESTION = 'Que proximidad hay?';
 const MQTT_PROX_QUESTION_LOCATION = 'Que proximidad hay en ';
+const MQTT_ORDER_QUESTION = 'Cuantas ordenes hubo?';
+const MQTT_ORDER_QUESTION_LOCATION = 'Cuantas ordenes hubo en ';
 const MQTT_LED_QUESTION_ON = 'Prender LED de ';
 const MQTT_LED_QUESTION_OFF = 'Apagar LED de ';
 const MQTT_ENGINE_QUESTION_START = 'Girar motor a ';
@@ -37,6 +40,8 @@ var mqttLastCOs = { };
 var mqttLastCOLocation = null;
 var mqttLastProximities = { };
 var mqttLastProximityLocation = null;
+var mqttLastOrders = { };
+var mqttLastOrderLocation = null;
 
 const HEARTBEAT_INTERVAL_MSECS = 60000;
 
@@ -183,6 +188,7 @@ const register = (host, username, ip, port, offset) => {
         if (askSensor(username, offset, message, MQTT_TEMP_QUESTION, MQTT_TEMP_QUESTION_LOCATION, mqttLastTempLocation, mqttLastTemperatures, "temperature")) { }
         else if (askSensor(username, offset, message, MQTT_CO_QUESTION, MQTT_CO_QUESTION_LOCATION, mqttLastCOLocation, mqttLastCOs, "CO")) { }
         else if (askSensor(username, offset, message, MQTT_PROX_QUESTION, MQTT_PROX_QUESTION_LOCATION, mqttLastProximityLocation, mqttLastProximities, "proximity")) { }
+        else if (askSensor(username, offset, message, MQTT_ORDER_QUESTION, MQTT_ORDER_QUESTION_LOCATION, mqttLastOrderLocation, mqttLastOrders, "order count")) { }
         else if (message.startsWith(MQTT_LED_QUESTION_ON)) {
             var location = message.substr(MQTT_LED_QUESTION_ON.length, message.length - MQTT_LED_QUESTION_ON.length);
             var message_led = {
@@ -293,6 +299,7 @@ function startMQTT() {
           var tempTopicPos = topic.search(MQTT_TEMP_TOPIC);
           var coTopicPos = topic.search(MQTT_CO_TOPIC);
           var proxTopicPos = topic.search(MQTT_PROX_TOPIC);
+          var orderTopicPos = topic.search(MQTT_ORDER_TOPIC);
           if (tempTopicPos > 0) {
             var location = topic.substr(MQTT_TOPIC_BASE.length, tempTopicPos - MQTT_TOPIC_BASE.length);
             mqttLastTemperatures[location] = parsed['valor'];
@@ -310,6 +317,12 @@ function startMQTT() {
             mqttLastProximities[location] = parsed['valor'];
             mqttLastProximityLocation = location;
             console.log(`Registered proximity ${mqttLastProximities[location]} at ${location}`);
+          }
+          else if (orderTopicPos > 0) {
+            var location = topic.substr(MQTT_TOPIC_BASE.length, orderTopicPos - MQTT_TOPIC_BASE.length);
+            mqttLastOrders[location] = parsed['valor'];
+            mqttLastOrderLocation = location;
+            console.log(`Registered order count ${mqttLastOrders[location]} at ${location}`);
           }
         }
         else {
