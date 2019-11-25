@@ -7,7 +7,7 @@
 const char* ssid = "patronatofi";
 const char* password = "";
 const char* mqtt_server = "200.0.183.33";
-const char* mqqt_topic = "ingenieria/anexo/pasillo/gas";
+const char* mqtt_topic = "ingenieria/anexo/pasillo/gas";
  
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -87,7 +87,7 @@ void loop() {
     sprintf(payload, "{\"valor\":%f, \"timestamp\":%d}", sensorValue(), millis());
     Serial.print("Publicando ");
     Serial.println(payload);
-    client.publish(mqqt_topic, payload);
+    client.publish(mqtt_topic, payload);
     delay(1000);
   }
   
